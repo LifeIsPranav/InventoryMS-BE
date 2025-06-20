@@ -5,7 +5,10 @@ const createOrder = z.object({
   packageId: z.string().min(2).max(20),
   transportationCost: z.number().optional(),
   status: z.string().optional(),
-  products: z.array(z.string()).optional(),
+  products: z.array(z.object({
+    product: z.string(),
+    quantity: z.number().min(1).optional().default(1)
+  })).optional(),
   startLocation: z.object({
     type: z.literal('Point'),
     coordinates: z.array(z.number()).length(2, { message: "Coordinates must be an array of two numbers: [longitude, latitude]" })

@@ -11,6 +11,21 @@ const transportationSchema = new mongoose.Schema({
     default: 0
   },
 
+  totalWeight: {
+    type: Number,
+    default: 0
+  },
+
+  totalVolume: {
+    type: Number,
+    default: 0
+  },
+
+  totalValue: {
+    type: Number,
+    default: 0
+  },
+
   status: {
     type: String,
     enum: ['pending', 'dispatched', 'inTransit', 'delivered'],
@@ -18,11 +33,18 @@ const transportationSchema = new mongoose.Schema({
   },
 
   products: [{
+    product: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Product',
       required: true
+    },
+    quantity: {
+      type: Number,
+      required: true,
+      min: 1,
+      default: 1
     }
-  ],
+  }],
 
   startLocation: {
     type: {

@@ -57,14 +57,33 @@ class InventoryRepository {
     }
   }
 
-  async addProductToInventory(inventoryId, productId) {
+  async addProductToInventory(inventoryId, productId, quantity = 1) {
     try {
-      logger.info(`[${CONTEXT}] Adding product ${productId} to inventory ${inventoryId}`)
-      const updatedInventory = await Inventory.findByIdAndUpdate(
-        inventoryId,
-        { $addToSet: { products: productId } },
-        { new: true }
+      logger.info(`[${CONTEXT}] Adding ${quantity} pieces of product ${productId} to inventory ${inventoryId}`)
+      
+      const inventory = await Inventory.findById(inventoryId)
+      if (!inventory) {
+        throw new Error('Inventory not found')
+      }
+      
+      const existingProductIndex = inventory.products.findIndex(
+        p => p.product.toString() === productId.toString()
       )
+      
+      let updatedInventory
+      if (existingProductIndex >= 0) {
+        updatedInventory = await Inventory.findByIdAndUpdate(
+          inventoryId,
+          { $inc: { [`products.${existingProductIndex}.quantity`]: quantity } },
+          { new: true }
+        )
+      } else {
+        updatedInventory = await Inventory.findByIdAndUpdate(
+          inventoryId,
+          { $push: { products: { product: productId, quantity } } },
+          { new: true }
+        )
+      }
 
       logger.info(`[${CONTEXT}] Product added to inventory successfully`)
       return updatedInventory
@@ -75,14 +94,39 @@ class InventoryRepository {
     }
   }
 
-  async removeProductFromInventory(inventoryId, productId) {
+  async removeProductFromInventory(inventoryId, productId, quantity = 1) {
     try {
-      logger.info(`[${CONTEXT}] Removing product ${productId} from inventory ${inventoryId}`)
-      const updatedInventory = await Inventory.findByIdAndUpdate(
-        inventoryId,
-        { $pull: { products: productId } },
-        { new: true }
+      logger.info(`[${CONTEXT}] Removing ${quantity} pieces of product ${productId} from inventory ${inventoryId}`)
+      
+      const inventory = await Inventory.findById(inventoryId)
+      if (!inventory) {
+        throw new Error('Inventory not found')
+      }
+      
+      const existingProductIndex = inventory.products.findIndex(
+        p => p.product.toString() === productId.toString()
       )
+      
+      if (existingProductIndex < 0) {
+        throw new Error('Product not found in inventory')
+      }
+      
+      const currentQuantity = inventory.products[existingProductIndex].quantity
+      let updatedInventory
+      
+      if (currentQuantity <= quantity) {
+        updatedInventory = await Inventory.findByIdAndUpdate(
+          inventoryId,
+          { $pull: { products: { product: productId } } },
+          { new: true }
+        )
+      } else {
+        updatedInventory = await Inventory.findByIdAndUpdate(
+          inventoryId,
+          { $inc: { [`products.${existingProductIndex}.quantity`]: -quantity } },
+          { new: true }
+        )
+      }
 
       logger.info(`[${CONTEXT}] Product removed from inventory successfully`)
       return updatedInventory
@@ -152,8 +196,22 @@ class InventoryRepository {
         throw new BadRequestError('Inventory not found.')
       }
 
-      const utilization = (inventory.capacityOccupied / inventory.totalCapacity) * 100
-      return { capacityUtilization: `${utilization.toFixed(2)}%` }
+      const capacityUtilization = inventory.totalCapacity > 0 
+        ? (inventory.capacityOccupied / inventory.totalCapacity) * 100 
+        : 0
+      const volumeUtilization = inventory.totalVolume > 0 
+        ? (inventory.volumeOccupied / inventory.totalVolume) * 100 
+        : 0
+
+      return { 
+        capacityUtilization: `${capacityUtilization.toFixed(2)}%`,
+        volumeUtilization: `${volumeUtilization.toFixed(2)}%`,
+        totalCost: inventory.costPrice || 0,
+        capacityOccupied: inventory.capacityOccupied,
+        totalCapacity: inventory.totalCapacity,
+        volumeOccupied: inventory.volumeOccupied,
+        totalVolume: inventory.totalVolume
+      }
 
     } catch (error) {
       logger.error(`[${CONTEXT}][getInventoryCapacityUtilization] :: ${error.message}`, error)

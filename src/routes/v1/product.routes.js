@@ -1,3 +1,17 @@
+/**
+ * Product Management
+ * 
+ * POST   /api/v1/products/                  Create a new product
+ * GET    /api/v1/products/                  Get all products
+ * GET    /api/v1/products/needsRestock      Get products needing restock
+ * GET    /api/v1/products/category/:category Get products by category
+ * GET    /api/v1/products/supplier/:supplierId Get products by supplier
+ * GET    /api/v1/products/:id               Get single product
+ * PUT    /api/v1/products/:id               Update product details
+ * DELETE /api/v1/products/:id               (Admin) Delete a product
+ * 
+ */
+
 const express = require('express')
 
 const adminMiddleware = require('../../middlewares/auth.admin.middleware')

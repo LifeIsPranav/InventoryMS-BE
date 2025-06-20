@@ -10,8 +10,8 @@ const createProductSchema = z.object({
   dimensions: z.object({ length: z.number(), width: z.number(), height: z.number()}).optional(),
   description: z.string().optional(),
   thresholdLimit: z.number().optional(),
-  mfgDate: z.date().optional(),
-  expiryDate: z.date().optional(),
+  mfgDate: z.preprocess(arg => new Date(arg), z.date()).optional(),
+  expiryDate: z.preprocess(arg => new Date(arg), z.date()).optional(),
   supplierId: z.string().optional(),
   supplierLocation: z.object({
     type: z.literal('Point'),
@@ -20,7 +20,9 @@ const createProductSchema = z.object({
 
 }).strict()
 
-const updateProductSchema = createProductSchema.partial()
+const updateProductSchema = createProductSchema.partial().extend({
+  quantity: z.number().nonnegative().optional()
+})
 
 module.exports = {
   createProductSchema,

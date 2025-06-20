@@ -1,18 +1,17 @@
 /**
- * User Routes
- * Base Path: /api/v1/users
+ * User Management
  * 
- * POST   /register           Register a new user
- * POST   /login              Login & get JWT token
- * POST   /logout             Logout a user
- * GET    /me                 Get current user info
- * GET    /                   List all users
- * PUT    /                   Update user's profile
- * PUT    /update_password    Update password
- * PUT    /:id                (Admin) Update user role/shift 
- * DELETE /:id                (Admin) Delete a user
+ * POST   /api/v1/users/register         Register a new user
+ * POST   /api/v1/users/login            Login & get JWT token
+ * POST   /api/v1/users/logout           Logout a user
+ * GET    /api/v1/users/me               Get current user info
+ * GET    /api/v1/users/                 List all users
+ * PUT    /api/v1/users/                 Update user's profile
+ * PUT    /api/v1/users/update_password  Update password
+ * PUT    /api/v1/users/:id              (Admin) Update user role/shift
+ * DELETE /api/v1/users/:id              (Admin) Delete a user
  * 
-*/
+ */
 
 const express = require('express')
 

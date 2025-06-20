@@ -14,7 +14,6 @@
  * createdAt       : Date       // Timestamp
  * updatedAt       : Date       // Timestamp
  * 
- * // ! -> we will be using user._id of mongoDB as our EmployeeId (empId)
  */
 
 const mongoose = require('mongoose')

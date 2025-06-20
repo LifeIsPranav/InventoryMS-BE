@@ -1,3 +1,11 @@
+/**
+ * Order Management
+ * 
+ * POST   /api/v1/buy/order           Create a new order
+ * PUT    /api/v1/buy/order           Update an existing order
+ * 
+ */
+
 const express = require('express')
 
 const { transportationController } = require('../../controllers')

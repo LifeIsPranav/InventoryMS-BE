@@ -44,15 +44,17 @@ const deleteInventory = async (req, res) => {
 }
 
 const addProductToInventory = async (req, res) => {
-    logger.info(`[${CONTEXT}] Adding product ${req.body.productId} to inventory ${req.params.id}`)
-    const inventory = await inventoryService.addProductToInventory(req.params.id, req.body.productId)
+    const quantity = req.body.quantity || 1
+    logger.info(`[${CONTEXT}] Adding ${quantity} pieces of product ${req.body.productId} to inventory ${req.params.id}${req.body.storageId ? ` via storage ${req.body.storageId}` : ''}`)
+    const inventory = await inventoryService.addProductToInventory(req.params.id, req.body.productId, quantity, req.body.storageId)
     res.status(StatusCodes.OK).json(ApiResponse.success('Product added to inventory successfully', { inventory }))
     logger.info(`[${CONTEXT}] Product added to inventory successfully.`)
 }
 
 const removeProductFromInventory = async (req, res) => {
-    logger.info(`[${CONTEXT}] Removing product ${req.body.productId} from inventory ${req.params.id}`)
-    const inventory = await inventoryService.removeProductFromInventory(req.params.id, req.body.productId)
+    const quantity = req.body.quantity || 1
+    logger.info(`[${CONTEXT}] Removing ${quantity} pieces of product ${req.body.productId} from inventory ${req.params.id}`)
+    const inventory = await inventoryService.removeProductFromInventory(req.params.id, req.body.productId, quantity)
     res.status(StatusCodes.OK).json(ApiResponse.success('Product removed from inventory successfully', { inventory }))
     logger.info(`[${CONTEXT}] Product removed from inventory successfully.`)
 }
@@ -64,11 +66,44 @@ const getInventoryCapacityUtilization = async (req, res) => {
     logger.info(`[${CONTEXT}] Inventory capacity utilization fetched successfully.`)
 }
 
+const getInventoryCostSummary = async (req, res) => {
+    logger.info(`[${CONTEXT}] Getting cost summary for inventory ${req.params.id}`)
+    const utilization = await inventoryService.getInventoryCapacityUtilization(req.params.id)
+    const costSummary = {
+        totalInventoryValue: utilization.totalCost,
+        capacityUtilization: utilization.capacityUtilization,
+        volumeUtilization: utilization.volumeUtilization,
+        summary: {
+            totalCapacity: utilization.totalCapacity,
+            capacityUsed: utilization.capacityOccupied,
+            totalVolume: utilization.totalVolume,
+            volumeUsed: utilization.volumeOccupied,
+            totalValue: utilization.totalCost
+        }
+    }
+    res.status(StatusCodes.OK).json(ApiResponse.success('Inventory cost summary fetched successfully', costSummary))
+    logger.info(`[${CONTEXT}] Inventory cost summary fetched successfully.`)
+}
+
 const getAllProductsInInventory = async (req, res) => {
     logger.info(`[${CONTEXT}] Getting All products for inventory ${req.params.id}`)
     const products = await inventoryService.getAllProductsInInventory(req.params.id)
     res.status(StatusCodes.OK).json(ApiResponse.success('All Products in Inventory fetched successfully', products))
     logger.info(`[${CONTEXT}] All Products from Inventory fetched successfully.`)
+}
+
+const addStorageToInventory = async (req, res) => {
+    logger.info(`[${CONTEXT}] Adding storage ${req.body.storageId} to inventory ${req.params.id}`)
+    const inventory = await inventoryService.addStorageToInventory(req.params.id, req.body.storageId)
+    res.status(StatusCodes.OK).json(ApiResponse.success('Storage added to inventory successfully', { inventory }))
+    logger.info(`[${CONTEXT}] Storage added to inventory successfully.`)
+}
+
+const removeStorageFromInventory = async (req, res) => {
+    logger.info(`[${CONTEXT}] Removing storage ${req.body.storageId} from inventory ${req.params.id}`)
+    const inventory = await inventoryService.removeStorageFromInventory(req.params.id, req.body.storageId)
+    res.status(StatusCodes.OK).json(ApiResponse.success('Storage removed from inventory successfully', { inventory }))
+    logger.info(`[${CONTEXT}] Storage removed from inventory successfully.`)
 }
 
 module.exports = {
@@ -80,5 +115,8 @@ module.exports = {
   addProductToInventory,
   removeProductFromInventory,
   getInventoryCapacityUtilization,
-  getAllProductsInInventory
+  getInventoryCostSummary,
+  getAllProductsInInventory,
+  addStorageToInventory,
+  removeStorageFromInventory
 }

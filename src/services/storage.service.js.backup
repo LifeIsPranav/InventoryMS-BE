@@ -90,10 +90,12 @@ class StorageService {
       throw new NotFoundError('Storage location not found')
     }
 
+    // Calculate totals based on quantity
     const productVolume = ((product.dimensions?.length * product.dimensions?.width * product.dimensions?.height) || 0) * quantity
     const productWeight = (product.weight || 0) * quantity
     const productCost = (product.price || 0) * quantity
 
+    // Validate capacity constraints
     if (storage.capacityOccupied + productWeight > storage.holdingCapacity) {
       throw new BadRequestError(`Product weight (${productWeight}) exceeds available storage capacity (${storage.holdingCapacity - storage.capacityOccupied})`)
     }
@@ -101,8 +103,11 @@ class StorageService {
       throw new BadRequestError(`Product volume (${productVolume}) exceeds available storage volume (${storage.Volume - storage.VolumeOccupied})`)
     }
 
+    // Validate stock availability
     if (product.quantity < quantity) {
       throw new BadRequestError(`Insufficient stock. Available: ${product.quantity}, Requested: ${quantity}`)
+    }
+      throw new BadRequestError('Product volume exceeds storage capacity - too big for this storage!')
     }
 
     const targetInventoryId = inventoryId || storage.inventory
@@ -118,14 +123,12 @@ class StorageService {
         throw new NotFoundError('Inventory not found')
       }
 
-      if (inventory.capacityOccupied + productWeight > inventory.totalCapacity) {
-        throw new BadRequestError('Product weight exceeds inventory capacity - too heavy!')
-      }
-      if (inventory.volumeOccupied + productVolume > inventory.totalVolume) {
-        throw new BadRequestError('Product volume exceeds inventory capacity - too big!')
-      }
+      if (inventory.capacityOccupied + productWeight > inventory.totalCapacity)
+      throw new BadRequestError('Product weight exceeds inventory capacity - too heavy!')
+      if (inventory.volumeOccupied + productVolume > inventory.totalVolume)
+      throw new BadRequestError('Product volume exceeds inventory capacity - too big!')
 
-      await inventoryRepo.addProductToInventory(targetInventoryId, productId, quantity)
+      await inventoryRepo.addProductToInventory(targetInventoryId, productId)
       await inventoryRepo.updateInventory(targetInventoryId, { 
         $inc: { 
           capacityOccupied: productWeight,
@@ -133,10 +136,12 @@ class StorageService {
           costPrice: productCost
         } 
       })
+
+      await this.ProductRepository.updateProduct(productId, { storage: storageId })
     }
 
-    const updatedStorage = await this.StorageRepository.addProductToStorage(storageId, productId, quantity)
-
+    const updatedStorage = await this.StorageRepository.addProductToStorage(storageId, productId)
+    
     await this.StorageRepository.updateStorage(storageId, {
       $inc: { 
         capacityOccupied: productWeight,
@@ -145,46 +150,40 @@ class StorageService {
       }
     })
 
-    await this.ProductRepository.updateProduct(productId, { 
-      $inc: { quantity: -quantity },
-      storage: storageId 
-    })
-
-    logger.info(`[${CONTEXT}] Product ${productId} (${quantity} pieces) added to storage ${storageId} successfully. Cost: ${productCost}`)
+    logger.info(`[${CONTEXT}] Product ${productId} added to storage ${storageId} successfully. Cost: ${productCost}`)
     return updatedStorage
   }
 
-  async removeProductFromStorage(storageId, productId, quantity = 1, inventoryId = null) {
-    logger.info(`[${CONTEXT}] Removing ${quantity} pieces of product ${productId} from storage ${storageId}`)
+  async removeProductFromStorage(storageId, productId, inventoryId = null) {
+    logger.info(`[${CONTEXT}] Removing product ${productId} from storage ${storageId}`)
     const product = await this.ProductRepository.getProductById(productId)
     if (!product) {
       throw new NotFoundError('Product not found')
     }
 
-    const storage = await this.StorageRepository.getStorageById(storageId)
-    if (!storage) {
-      throw new NotFoundError('Storage location not found')
+    const productVolume = (product.dimensions?.length * product.dimensions?.width * product.dimensions?.height) || 0
+    const productWeight = product.weight || 0
+    const productCost = (product.price || 0) * (product.quantity || 1)
+
+    if (!inventoryId) {
+      const storage = await this.StorageRepository.getStorageById(storageId)
+      if (storage && storage.inventory) {
+        const inventoryRepo = new InventoryRepository()
+        await inventoryRepo.removeProductFromInventory(storage.inventory, productId)
+        await inventoryRepo.updateInventory(storage.inventory, { 
+          $inc: { 
+            capacityOccupied: -productWeight,
+            volumeOccupied: -productVolume,
+            costPrice: -productCost
+          } 
+        })
+
+        await this.ProductRepository.updateProduct(productId, { $unset: { storage: "" } })
+      }
     }
 
-    const productVolume = ((product.dimensions?.length * product.dimensions?.width * product.dimensions?.height) || 0) * quantity
-    const productWeight = (product.weight || 0) * quantity
-    const productCost = (product.price || 0) * quantity
-
-    const targetInventoryId = inventoryId || storage.inventory
-    if (targetInventoryId) {
-      const inventoryRepo = new InventoryRepository()
-      await inventoryRepo.removeProductFromInventory(targetInventoryId, productId, quantity)
-      await inventoryRepo.updateInventory(targetInventoryId, { 
-        $inc: { 
-          capacityOccupied: -productWeight,
-          volumeOccupied: -productVolume,
-          costPrice: -productCost
-        } 
-      })
-    }
-
-    const updatedStorage = await this.StorageRepository.removeProductFromStorage(storageId, productId, quantity)
-
+    const updatedStorage = await this.StorageRepository.removeProductFromStorage(storageId, productId)
+    
     await this.StorageRepository.updateStorage(storageId, {
       $inc: { 
         capacityOccupied: -productWeight,
@@ -193,50 +192,36 @@ class StorageService {
       }
     })
 
-    await this.ProductRepository.updateProduct(productId, { 
-      $inc: { quantity: quantity },
-      $unset: { storage: "" }
-    })
-
-    logger.info(`[${CONTEXT}] Product ${productId} (${quantity} pieces) removed from storage ${storageId} successfully. Cost deducted: ${productCost}`)
+    logger.info(`[${CONTEXT}] Product ${productId} removed from storage ${storageId} successfully. Cost deducted: ${productCost}`)
     return updatedStorage
   }
 
   async getStorageUtilization(storageId) {
-    logger.info(`[${CONTEXT}] Calculating storage utilization for storage: ${storageId}`)
+    logger.info(`[${CONTEXT}] Calculating utilization for storage: ${storageId}`)
     const result = await this.StorageRepository.getStorageUtilization(storageId)
-    logger.info(`[${CONTEXT}] Storage utilization calculated successfully for: ${storageId}`)
+    logger.info(`[${CONTEXT}] Storage ${storageId} - Capacity: ${result.capacityUtilization}, Volume: ${result.volumeUtilization}, Total Cost: $${result.totalCost}`)
     return result
   }
 
   async getStorageCostSummary(storageId) {
-    logger.info(`[${CONTEXT}] Calculating cost summary for storage: ${storageId}`)
-    const storage = await this.StorageRepository.getStorageById(storageId)
-    if (!storage) {
-      throw new NotFoundError('Storage location not found')
+    logger.info(`[${CONTEXT}] Getting cost summary for storage: ${storageId}`)
+    const utilization = await this.getStorageUtilization(storageId)
+    
+    const costSummary = {
+      totalStorageValue: utilization.totalCost,
+      capacityUtilization: utilization.capacityUtilization,
+      volumeUtilization: utilization.volumeUtilization,
+      summary: {
+        holdingCapacity: utilization.holdingCapacity,
+        capacityUsed: utilization.capacityOccupied,
+        totalVolume: utilization.totalVolume,
+        volumeUsed: utilization.volumeOccupied,
+        totalValue: utilization.totalCost
+      }
     }
-
-    const totalStorageValue = storage.totalCost || 0
-    const capacityUtilization = ((storage.capacityOccupied || 0) / (storage.holdingCapacity || 1) * 100).toFixed(2) + '%'
-    const volumeUtilization = ((storage.VolumeOccupied || 0) / (storage.Volume || 1) * 100).toFixed(2) + '%'
-
-    const summary = {
-      holdingCapacity: storage.holdingCapacity || 0,
-      capacityUsed: storage.capacityOccupied || 0,
-      totalVolume: storage.Volume || 0,
-      volumeUsed: storage.VolumeOccupied || 0,
-      totalValue: totalStorageValue
-    }
-
-    const result = {
-      totalStorageValue,
-      capacityUtilization,
-      volumeUtilization,
-      summary
-    }
-
-    logger.info(`[${CONTEXT}] Storage cost summary calculated successfully for: ${storageId}`)
-    return result
+    
+    logger.info(`[${CONTEXT}] Storage cost summary calculated for storage: ${storageId}`)
+    return costSummary
   }
 }
 

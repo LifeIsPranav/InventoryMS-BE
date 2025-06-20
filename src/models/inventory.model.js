@@ -12,11 +12,17 @@ const inventorySchema = new mongoose.Schema({
   },
 
   products: [{
+    product: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Product',
       required: true
+    },
+    quantity: {
+      type: Number,
+      required: true,
+      min: 1
     }
-  ],
+  }],
 
   costPrice: {
     type: Number,
@@ -29,6 +35,16 @@ const inventorySchema = new mongoose.Schema({
   },
 
   capacityOccupied: {
+    type: Number,
+    default: 0
+  },
+
+  totalVolume: {
+    type: Number,
+    default: 0
+  },
+
+  volumeOccupied: {
     type: Number,
     default: 0
   },

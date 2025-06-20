@@ -62,14 +62,33 @@ class StorageRepository {
     }
   }
 
-  async addProductToStorage(storageId, productId) {
+  async addProductToStorage(storageId, productId, quantity = 1) {
     try {
-      logger.info(`[${CONTEXT}] Adding product ${productId} to storage ${storageId}`)
-      const updatedStorage = await Storage.findByIdAndUpdate(
-        storageId,
-        { $addToSet: { products: productId } },
-        { new: true }
+      logger.info(`[${CONTEXT}] Adding ${quantity} pieces of product ${productId} to storage ${storageId}`)
+      
+      const storage = await Storage.findById(storageId)
+      if (!storage) {
+        throw new Error('Storage not found')
+      }
+      
+      const existingProductIndex = storage.products.findIndex(
+        p => p.product.toString() === productId.toString()
       )
+      
+      let updatedStorage
+      if (existingProductIndex >= 0) {
+        updatedStorage = await Storage.findByIdAndUpdate(
+          storageId,
+          { $inc: { [`products.${existingProductIndex}.quantity`]: quantity } },
+          { new: true }
+        )
+      } else {
+          updatedStorage = await Storage.findByIdAndUpdate(
+          storageId,
+          { $push: { products: { product: productId, quantity } } },
+          { new: true }
+        )
+      }
 
       logger.info(`[${CONTEXT}] Product added to storage successfully`)
       return updatedStorage
@@ -80,14 +99,39 @@ class StorageRepository {
     }
   }
 
-  async removeProductFromStorage(storageId, productId) {
+  async removeProductFromStorage(storageId, productId, quantity = 1) {
     try {
-      logger.info(`[${CONTEXT}] Removing product ${productId} from storage ${storageId}`)
-      const updatedStorage = await Storage.findByIdAndUpdate(
-        storageId,
-        { $pull: { products: productId } },
-        { new: true }
+      logger.info(`[${CONTEXT}] Removing ${quantity} pieces of product ${productId} from storage ${storageId}`)
+      
+      const storage = await Storage.findById(storageId)
+      if (!storage) {
+        throw new Error('Storage not found')
+      }
+      
+      const existingProductIndex = storage.products.findIndex(
+        p => p.product.toString() === productId.toString()
       )
+      
+      if (existingProductIndex < 0) {
+        throw new Error('Product not found in storage')
+      }
+      
+      const currentQuantity = storage.products[existingProductIndex].quantity
+      let updatedStorage
+      
+      if (currentQuantity <= quantity) {
+          updatedStorage = await Storage.findByIdAndUpdate(
+          storageId,
+          { $pull: { products: { product: productId } } },
+          { new: true }
+        )
+      } else {
+          updatedStorage = await Storage.findByIdAndUpdate(
+          storageId,
+          { $inc: { [`products.${existingProductIndex}.quantity`]: -quantity } },
+          { new: true }
+        )
+      }
 
       logger.info(`[${CONTEXT}] Product removed from storage successfully`)
       return updatedStorage
@@ -162,12 +206,21 @@ class StorageRepository {
         throw new BadRequestError('Storage not found.')
       }
 
-      const capacityUtilization = (storage.capacityOccupied / storage.holdingCapacity) * 100
-      const volumeUtilization = (storage.VolumeOccupied / storage.Volume) * 100
+      const capacityUtilization = storage.holdingCapacity > 0 
+        ? (storage.capacityOccupied / storage.holdingCapacity) * 100 
+        : 0
+      const volumeUtilization = storage.Volume > 0 
+        ? (storage.VolumeOccupied / storage.Volume) * 100 
+        : 0
 
       return {
         capacityUtilization: `${capacityUtilization.toFixed(2)}%`,
-        volumeUtilization: `${volumeUtilization.toFixed(2)}%`
+        volumeUtilization: `${volumeUtilization.toFixed(2)}%`,
+        totalCost: storage.totalCost || 0,
+        capacityOccupied: storage.capacityOccupied,
+        holdingCapacity: storage.holdingCapacity,
+        volumeOccupied: storage.VolumeOccupied,
+        totalVolume: storage.Volume
       }
 
     } catch (error) {

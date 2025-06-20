@@ -1,18 +1,74 @@
 const logger = require('../utils/logger')
-const { NotFoundError } = require('../errors/client.error')
+const { NotFoundError, BadRequestError } = require('../errors/client.error')
+const mongoose = require('mongoose')
 
 const CONTEXT = 'TransportationService'
 
 class TransportationService {
-  constructor(TransportationRepository) {
+  constructor(TransportationRepository, ProductRepository) {
     this.TransportationRepository = TransportationRepository
+    this.ProductRepository = ProductRepository
   }
 
   async createTransportation(transportationDetails) {
     logger.info(`[${CONTEXT}] Creating new transportation with details: ${JSON.stringify(transportationDetails)}`)
+    
+      if (transportationDetails.products && transportationDetails.products.length > 0) {
+      const calculatedDetails = await this.calculateOrderTotals(transportationDetails.products)
+      transportationDetails.totalWeight = calculatedDetails.totalWeight
+      transportationDetails.totalVolume = calculatedDetails.totalVolume
+      transportationDetails.totalValue = calculatedDetails.totalValue
+      
+      await this.validateStockAvailability(transportationDetails.products)
+    }
+    
     const transportation = await this.TransportationRepository.createTransportation(transportationDetails)
     logger.info(`[${CONTEXT}] Transportation created successfully: ${transportation._id}`)
     return transportation
+  }
+
+  async calculateOrderTotals(products) {
+    logger.info(`[${CONTEXT}] Calculating order totals for products`)
+    let totalWeight = 0
+    let totalVolume = 0
+    let totalValue = 0
+
+    for (const item of products) {
+      const product = await this.ProductRepository.getProductById(item.product)
+      if (!product) {
+        throw new NotFoundError(`Product not found: ${item.product}`)
+      }
+
+      const quantity = item.quantity || 1
+      const productVolume = (product.dimensions?.length || 0) * 
+                           (product.dimensions?.width || 0) * 
+                           (product.dimensions?.height || 0)
+
+      totalWeight += (product.weight || 0) * quantity
+      totalVolume += productVolume * quantity
+      totalValue += (product.price || 0) * quantity
+    }
+
+    logger.info(`[${CONTEXT}] Order totals calculated - Weight: ${totalWeight}, Volume: ${totalVolume}, Value: ${totalValue}`)
+    return { totalWeight, totalVolume, totalValue }
+  }
+
+  async validateStockAvailability(products) {
+    logger.info(`[${CONTEXT}] Validating stock availability`)
+    
+    for (const item of products) {
+      const product = await this.ProductRepository.getProductById(item.product)
+      if (!product) {
+        throw new NotFoundError(`Product not found: ${item.product}`)
+      }
+
+      const requestedQuantity = item.quantity || 1
+      if (product.quantity < requestedQuantity) {
+        throw new BadRequestError(`Insufficient stock for product ${product.productName}. Available: ${product.quantity}, Requested: ${requestedQuantity}`)
+      }
+    }
+    
+    logger.info(`[${CONTEXT}] Stock availability validated successfully`)
   }
 
   async getTransportation(transportationId) {

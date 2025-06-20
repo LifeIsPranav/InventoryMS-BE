@@ -7,7 +7,7 @@
  * currentVolume : cm3
  */
 
-const mongoose = require("mongoose");
+const mongoose = require("mongoose")
 
 const storageSchema = new mongoose.Schema({
   locationId: {
@@ -42,13 +42,30 @@ const storageSchema = new mongoose.Schema({
     default: 0
   },
 
+  totalCost: {
+    type: Number,
+    default: 0
+  },
+
   products: [{
+    product: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Product"
+      ref: "Product",
+      required: true
+    },
+    quantity: {
+      type: Number,
+      required: true,
+      min: 1
     }
-  ]
-}, { timestamps: true });
+  }],
 
-const StorageModel = mongoose.model("Storage", storageSchema);
+  inventory: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Inventory"
+  }
+}, { timestamps: true })
 
-module.exports = StorageModel;
+const StorageModel = mongoose.model("Storage", storageSchema)
+
+module.exports = StorageModel

@@ -1,4 +1,4 @@
-const mongoose = require("mongoose");
+const mongoose = require("mongoose")
 
 const productSchema = new mongoose.Schema({
   productName: {
@@ -87,12 +87,12 @@ const productSchema = new mongoose.Schema({
     }
   }
 
-}, { timestamps: true });
+}, { timestamps: true })
 
 productSchema.pre('save', function (next) {
-  this.sku = this._id.toString();
-  next();
-});
+  this.sku = this._id.toString()
+  next()
+})
 
-const ProductModel = mongoose.model("Product", productSchema);
-module.exports = ProductModel;
+const ProductModel = mongoose.model("Product", productSchema)
+module.exports = ProductModel

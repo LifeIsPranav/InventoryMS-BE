@@ -33,14 +33,14 @@ const logger = createLogger({
       )
     }),
 
-    // File output
-    new transports.File({ 
-      filename: path.join(__dirname, '../../logs/error.log'), 
-      level: 'error' 
-    }),
-    new transports.File({ 
-      filename: path.join(__dirname, '../../logs/app.log') 
-    }),
+    // // File output
+    // new transports.File({ 
+    //   filename: path.join(__dirname, '../../logs/error.log'), 
+    //   level: 'error' 
+    // }),
+    // new transports.File({ 
+    //   filename: path.join(__dirname, '../../logs/app.log') 
+    // }),
 
     // Will remove in Production (for My Ease)
     new transports.File({

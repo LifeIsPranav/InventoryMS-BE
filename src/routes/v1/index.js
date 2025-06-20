@@ -1,4 +1,3 @@
-
 // All routes According to HLD at one Place:
 /**
  * User Management
@@ -67,7 +66,7 @@ const wageRouter = require('./wage.router')
 const alertRouter = require('./alert.router')
 const productRouter = require('./product.routes')
 const storageRouter = require('./storage.router')
-const orderRouter = require('./order.routes.js')
+const orderRouter = require('./order.routes')
 
 const v1Router = express.Router()
 

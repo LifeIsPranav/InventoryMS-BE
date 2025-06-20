@@ -1,7 +1,7 @@
 const { z } = require('zod')
 
 const createInventorySchema = z.object({
-
+  
   name: z.string().min(3).max(50),
   totalCapacity: z.number().nonnegative().optional(),
   totalVolume: z.number().nonnegative().optional(),
